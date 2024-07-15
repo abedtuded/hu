@@ -1,0 +1,49 @@
+import requests
+from requests_ntlm2 import HttpNtlmAuth
+import json
+
+# Set up session and target details
+session = requests.Session()
+target1 = "http://win-54lqptq22ka"
+username = "user1"
+pwd = "!QAZ2wsx"
+site = "/my/personal/" + username
+target = target1 + site
+
+# Set up NTLM authentication
+auth = HttpNtlmAuth(username, pwd)
+
+# Obtain the form digest value
+digest_url = target1 + "/_api/contextinfo"
+digest_headers = {
+    "Accept": "application/json;odata=verbose",
+    "Content-Type": "application/json;odata=verbose"
+}
+
+response = session.post(digest_url, headers=digest_headers, auth=auth, verify=False)
+if response.status_code == 200:
+    digest_value = response.json()['d']['GetContextWebInformation']['FormDigestValue']
+    print("Form Digest Value:", digest_value)
+else:
+    print("Failed to obtain form digest value:", response.status_code, response.text)
+    exit()
+
+# Now use the form digest value in subsequent requests
+headers = {
+    "Accept": "application/json;odata=verbose",
+    "Content-Type": "application/json;odata=verbose",
+    "X-RequestDigest": digest_value
+}
+
+# Example request using the X-RequestDigest header
+post_url = target1 + "/_api/web/lists/getbytitle('YourListTitle')/items"
+data = {
+    "__metadata": { "type": "SP.Data.YourListTitleListItem" },
+    "Title": "New Item"
+}
+
+response = session.post(post_url, headers=headers, json=data, auth=auth, verify=False)
+if response.status_code == 201:
+    print("Item created successfully")
+else:
+    print("Failed to create item:", response.status_code, response.text)
